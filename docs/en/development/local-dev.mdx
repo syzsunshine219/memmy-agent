@@ -1,0 +1,42 @@
+---
+title: Local Development & Packaging
+icon: Package
+---
+
+## Requirements
+
+Node.js `>=22` + npm. Root workspaces include `Memory`, `App/backend/local-api-contracts`, `App/backend`, `App/frontend/*`, `App/shell/desktop/interface`, and `App/shell/*`.
+
+## Common Commands
+
+```bash
+npm install            # Install dependencies at the repo root
+npm run dev:desktop    # Start the desktop frontend Vite server and Electron shell together
+npm run build          # Build Memory and all workspaces
+npm run lint
+npm run typecheck
+npm run test
+npm run db:migrate     # Run backend database migrations
+npm run package:mac    # Package the macOS DMG
+npm run package:win:x64
+```
+
+## Developing Memory Standalone
+
+```bash
+npm run memory:serve:dev -- \
+  --host 127.0.0.1 \
+  --port 18960 \
+  --db ~/.memmy/memory-service/memory.sqlite \
+  --config ~/.memmy/config.yaml
+```
+
+## memmy-agent from Source
+
+```bash
+cd App/memmy-agent
+npm install && npm run build
+node dist/main.js onboard
+node dist/main.js agent --message "Hi, introduce the current workspace"
+node dist/main.js serve
+```
