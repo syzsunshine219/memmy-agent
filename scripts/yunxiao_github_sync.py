@@ -27,6 +27,16 @@ DEFAULT_WORKITEM_CATEGORY = "Req"
 DEFAULT_WORKITEM_TYPE_NAME = "需求"
 DEFAULT_DAYS_TO_FINISH = 7
 DEFAULT_PARTICIPANT_NAMES = ("徐之淇", "贾澄臻")
+# GitHub exposes the relationship between a pull-request author and the
+# repository. Only community-facing associations enter the Yunxiao space.
+EXTERNAL_PR_AUTHOR_ASSOCIATIONS = frozenset(
+    {
+        "CONTRIBUTOR",
+        "FIRST_TIMER",
+        "FIRST_TIME_CONTRIBUTOR",
+        "NONE",
+    }
+)
 REQUIRED_ENV = (
     "YUNXIAO_PROJECT_ID",
     "YUNXIAO_PROJECT_NAME",
@@ -125,6 +135,12 @@ def source_status(item_type: str, item: dict[str, Any]) -> str:
     if item_type == "pr" and (item.get("merged") or item.get("merged_at")):
         return "已完成"
     return "已取消"
+
+
+def should_sync_pull_request(item: dict[str, Any]) -> bool:
+    """Return whether a pull request was submitted by a community user."""
+    association = str(item.get("author_association") or "").strip().upper()
+    return association in EXTERNAL_PR_AUTHOR_ASSOCIATIONS
 
 
 def item_id(item: dict[str, Any]) -> str:
@@ -604,6 +620,14 @@ def handle_event(client: YunxiaoClient) -> int:
     repository = repository_name(
         event.get("repository", {}).get("full_name") or os.environ.get("GITHUB_REPOSITORY")
     )
+    if item_type == "pr" and not should_sync_pull_request(item):
+        association = str(item.get("author_association") or "").strip().upper() or "UNKNOWN"
+        print(
+            f"{repository} pr #{item['number']}: skipped internal author_association={association}",
+            file=sys.stderr,
+        )
+        return 0
+
     cfg = configuration_from_environment(client)
     all_labels = {
         label["name"]
@@ -660,9 +684,14 @@ def backfill(client: YunxiaoClient, *, apply: bool, state: str) -> int:
     github_token = os.environ.get("GH_TOKEN", "").strip()
     repository = repository_name(os.environ.get("GITHUB_REPOSITORY"))
     issues_raw = github_collection(repository, "issues", state=state, token=github_token)
-    prs = github_collection(repository, "pulls", state=state, token=github_token)
+    prs_raw = github_collection(repository, "pulls", state=state, token=github_token)
     issues = [item for item in issues_raw if "pull_request" not in item]
-    print(f"GitHub: {len(issues)} {state} issues, {len(prs)} {state} PRs", file=sys.stderr)
+    prs = [item for item in prs_raw if should_sync_pull_request(item)]
+    print(
+        f"GitHub: {len(issues)} {state} issues, {len(prs)} external {state} PRs "
+        f"(skipped {len(prs_raw) - len(prs)} internal PRs)",
+        file=sys.stderr,
+    )
 
     cfg = configuration_from_environment(client)
     all_labels: set[str] = set()

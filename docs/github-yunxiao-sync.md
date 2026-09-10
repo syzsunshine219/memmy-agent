@@ -5,7 +5,7 @@
 同步链路如下：
 
 ```text
-GitHub issues / pull_request_target
+GitHub issues / external pull_request_target
   -> .github/workflows/yunxiao-github-sync.yml
   -> scripts/yunxiao_github_sync.py
   -> 云效 OpenAPI
@@ -70,7 +70,13 @@ GitHub issues / pull_request_target
 3. 确认结果后再次运行 `mode=backfill`、`state=open`、`apply=true`。
 4. 需要把历史关闭项也纳入同步时，将 `state` 设为 `all`。
 
-实时事件会处理 `opened`、`closed` 和 `reopened`。已存在的云效工作项只更新状态，不重复创建。
+实时事件会处理 `opened`、`closed` 和 `reopened`。Pull Request 使用 GitHub 的
+`author_association` 判断来源，只同步社区身份 `CONTRIBUTOR`、`FIRST_TIMER`、
+`FIRST_TIME_CONTRIBUTOR` 和 `NONE`；仓库内部的 `OWNER`、`MEMBER`、
+`COLLABORATOR` 以及未知身份会跳过。Issue 不做这个过滤。
+
+已存在的云效工作项只更新状态，不重复创建。历史回填也会沿用同一条 PR 过滤规则，
+不会把内部 PR 新建到云效。已经存在的内部 PR 工作项不会被自动删除。
 
 幂等键包含完整源仓库名，例如：
 
